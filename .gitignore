@@ -1,0 +1,11 @@
+tts_cache/
+*.task
+venv/
+__pycache__/
+*.png
+*.jpg
+*.jpeg
+*.zip
+dataset/
+logs/
+.DS_Store
