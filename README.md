@@ -286,7 +286,9 @@ project ini.
    diuji sama sekali pada foto lapangan.
 3. **Threshold keyakinan bukan deteksi out-of-distribution.** Softmax bisa tetap
    tinggi untuk objek yang sama sekali bukan daun. Ambang `0.60` hanya mitigasi,
-   bukan solusi.
+   bukan solusi. Terbukti saat uji webcam: frame berisi kursi dan lemari pakaian
+   diprediksi "Virus Keriting Daun Kuning" dengan confidence **81,69%**, di atas
+   ambang. Artinya angka confidence tidak boleh dibaca sebagai "ini pasti daun".
 4. **Tidak ada validasi agronomis.** Saran penanganan disusun dari pengetahuan
    umum dan **bukan** hasil konsultasi dengan penyuluh pertanian. Jangan dipakai
    sebagai dasar tindakan di lahan.
