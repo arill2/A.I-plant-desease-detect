@@ -1,234 +1,265 @@
-<div align="center">
+# Plant Disease Detection — MobileNetV2 + Transfer Learning
 
-<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&size=13&pause=1000&color=00C853&center=true&vCenter=true&width=435&lines=Tomato+Disease+%7C+10+Classes+%7C+MobileNetV2" alt="Typing SVG" />
+Deteksi penyakit daun tomat, kentang, dan paprika dari gambar, dengan mode file
+statis maupun webcam real-time.
 
-# 🌿 Plant Disease Detection AI
-### Transfer Learning · MobileNetV2 · TensorFlow · Real-time Webcam
-
-[![Python](https://img.shields.io/badge/Python-3.8%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
-[![TensorFlow](https://img.shields.io/badge/TensorFlow-2.x-FF6F00?style=for-the-badge&logo=tensorflow&logoColor=white)](https://tensorflow.org)
-[![OpenCV](https://img.shields.io/badge/OpenCV-4.x-5C3EE8?style=for-the-badge&logo=opencv&logoColor=white)](https://opencv.org)
-[![License](https://img.shields.io/badge/License-MIT-00C853?style=for-the-badge)](LICENSE)
-
-> **Sistem deteksi penyakit daun tomat berbasis Deep Learning** yang mampu mengidentifikasi **10 kelas penyakit** secara real-time melalui webcam maupun analisis gambar statis — dibangun menggunakan arsitektur Transfer Learning MobileNetV2 dengan akurasi tinggi.
-
-</div>
+[![Python](https://img.shields.io/badge/Python-3.10--3.12-3776AB?logo=python&logoColor=white)](https://python.org)
+[![TensorFlow](https://img.shields.io/badge/TensorFlow-2.16%2B-FF6F00?logo=tensorflow&logoColor=white)](https://tensorflow.org)
+[![License](https://img.shields.io/badge/License-MIT-00C853)](LICENSE)
 
 ---
 
-## 📸 Demo
+## Status dan cara membaca repo ini
 
-| Mode File Gambar | Mode Realtime Webcam |
-|:---:|:---:|
-| Input gambar → Top-3 prediksi + bar chart | Live feed → overlay UI + instant diagnosis |
-| `python predict.py` → pilih `1` | `python predict.py` → pilih `2` |
+Repo ini pernah punya masalah konsistensi: README menyebut 10 kelas, script
+training memakai 15, dan docstring menyebut 38. Angka akurasi ~95% yang dulu
+ditulis di sini dihitung pada set validasi yang **juga** dipakai untuk memilih
+checkpoint, jadi itu bukan estimasi yang jujur.
+
+Sekarang repo ini sudah dirapikan:
+
+- Jumlah kelas dibaca dari isi folder dataset, dan diverifikasi terhadap
+  `config.DISEASE_INFO`. Kalau ada kelas tanpa profil penanganan, training
+  berhenti di awal dengan pesan yang jelas.
+- Ada tiga split: **train / validasi / test**. Angka yang dilaporkan sebagai
+  hasil adalah angka **test**, karena test tidak dipakai untuk keputusan apa pun.
+- Gambar duplikat dibuang sebelum split (PlantVillage banyak berisi salinan
+  identik), supaya tidak bocor ke train dan test sekaligus.
+- **Tidak ada angka akurasi yang ditulis di README ini.** Angka harus berasal
+  dari run kamu sendiri, dan tercatat otomatis di `models/training_meta.json`.
 
 ---
 
-## 🎯 Highlights
+## Bagaimana project ini dibangun
 
-- 🔬 **10 Kelas Penyakit** — mencakup bacterial spot, early/late blight, leaf mold, mosaic virus, dan lainnya  
-- ⚡ **Dual Mode** — analisis dari file gambar statis atau webcam real-time  
-- 🎨 **UI Overlay Profesional** — glass panel, scanline animation, corner bracket, color-coded per penyakit  
-- 📊 **Top-3 Confidence** — menampilkan 3 kandidat prediksi sekaligus dengan bar chart  
-- 💊 **Rekomendasi Penanganan** — setiap kelas dilengkapi info tingkat keparahan & saran treatment  
-- 🧠 **Two-Stage Training** — frozen head → fine-tune untuk konvergensi optimal  
+Bagian ini ditulis eksplisit supaya tidak ada klaim yang berlebihan.
+
+- **Dirancang manusia:** pemilihan masalah, pemilihan pendekatan transfer
+  learning, pemilihan arsitektur MobileNetV2 karena kebutuhan inferensi
+  real-time di CPU, strategi dua tahap (frozen → fine-tune), skema UI, dan
+  pemetaan penyakit ke tingkat keparahan beserta saran penanganan dalam Bahasa
+  Indonesia.
+- **Implementasi kode:** dibangun dengan bantuan AI, lalu diaudit dan diperbaiki.
+- **Yang tidak diklaim:** model ini bukan hasil riset baru, dan tidak divalidasi
+  pada kondisi lapangan. Lihat bagian Keterbatasan.
 
 ---
 
-## 🏗️ Arsitektur Model
+## Dataset
+
+[PlantVillage](https://www.kaggle.com/datasets/emmarex/plantdisease) — 15 kelas
+(2 paprika, 3 kentang, 10 tomat), citra daun tunggal dengan latar seragam.
+
+Dataset **tidak** disertakan di repo. Ekstrak sehingga strukturnya menjadi:
 
 ```
-Input (224×224×3)
+dataset/PlantVillage/
+├── Pepper__bell___Bacterial_spot/
+├── Pepper__bell___healthy/
+├── Potato___Early_blight/
+├── Potato___Late_blight/
+├── Potato___healthy/
+├── Tomato_Bacterial_spot/
+├── Tomato_Early_blight/
+├── Tomato_Late_blight/
+├── Tomato_Leaf_Mold/
+├── Tomato_Septoria_leaf_spot/
+├── Tomato_Spider_mites_Two_spotted_spider_mite/
+├── Tomato__Target_Spot/
+├── Tomato__Tomato_YellowLeaf__Curl_Virus/
+├── Tomato__Tomato_mosaic_virus/
+└── Tomato_healthy/
+```
+
+Nama folder memang tidak konsisten (satu, dua, atau tiga underscore). Jangan
+"dirapikan", karena nama itu harus sama persis dengan kunci di
+`config.DISEASE_INFO`.
+
+---
+
+## Arsitektur
+
+```
+Input 224×224×3  →  preprocess_input  →  skala [-1, 1]
         │
-   MobileNetV2          ← pretrained ImageNet, frozen di tahap 1
-  (Feature Extractor)   ← fine-tune 30 layer terakhir di tahap 2
+   MobileNetV2 (ImageNet)          ← tahap 1: frozen
+   (feature extractor)             ← tahap 2: 30 layer terakhir dibuka
         │
   GlobalAveragePooling2D
         │
   BatchNormalization
         │
-  Dense(512, relu)
+  Dense(512, relu)  →  Dropout(0.4)
         │
-  Dropout(0.4)
+  Dense(256, relu)  →  Dropout(0.3)
         │
-  Dense(256, relu)
-        │
-  Dropout(0.3)
-        │
-  Dense(10, softmax)    ← 10 kelas penyakit tomat
-        │
-     Output
+  Dense(15, softmax)
 ```
 
-**Strategi Training 2 Tahap:**
+| Tahap | Layer dilatih | LR | Epoch |
+|---|---|---|---|
+| 1 — Feature extraction | head saja | `1e-3` | 10 |
+| 2 — Fine-tune | head + 30 layer terakhir base | `1e-4` | 10 |
 
-| Tahap | Layer yang Dilatih | Learning Rate | Epochs |
-|:---:|---|:---:|:---:|
-| **1 — Frozen** | Hanya classification head | `1e-3` | 15 |
-| **2 — Fine-tune** | Head + 30 layer terakhir base | `1e-4` | 10 |
+Catatan teknis: `base_model(inputs, training=False)` dipakai supaya
+BatchNormalization di dalam MobileNetV2 tetap memakai statistik ImageNet selama
+fine-tuning. Tanpa ini, hasil fine-tune sering justru memburuk.
 
 ---
 
-## 🦠 Kelas Penyakit yang Dideteksi
+## Instalasi
 
-| # | Nama Penyakit | ID Bahasa Indonesia | Tingkat Keparahan |
-|:---:|---|---|:---:|
-| 1 | Bacterial Spot | Bercak Bakteri | 🟡 Sedang |
-| 2 | Early Blight | Hawar Awal | 🟡 Sedang |
-| 3 | Late Blight | Hawar Akhir | 🔴 Tinggi |
-| 4 | Leaf Mold | Jamur Daun | 🟢 Rendah |
-| 5 | Septoria Leaf Spot | Bercak Septoria | 🟡 Sedang |
-| 6 | Spider Mites | Tungau Laba-laba | 🟡 Sedang |
-| 7 | Target Spot | Bercak Target | 🟡 Rendah-Sedang |
-| 8 | Mosaic Virus | Virus Mosaik | 🔴 Tinggi |
-| 9 | Yellow Leaf Curl Virus | Virus Keriting Daun Kuning | 🔴 Tinggi |
-| 10 | Healthy | Sehat | ✅ Tidak ada |
+Butuh **Python 3.10–3.12** (TensorFlow belum mendukung 3.13/3.14).
 
----
-
-## 📊 Hasil Training
-
-| Metrik | Nilai |
-|---|:---:|
-| Validation Accuracy | **~95%+** |
-| Top-3 Accuracy | **~99%** |
-| Optimizer | Adam |
-| Loss Function | Categorical Crossentropy |
-
-```
-Training History:
-  Epoch 1/15  — val_accuracy: 0.72  ████████░░░░░░░░░░░░
-  Epoch 5/15  — val_accuracy: 0.87  █████████████░░░░░░░
-  Epoch 10/15 — val_accuracy: 0.93  ██████████████████░░
-  Epoch 15/15 — val_accuracy: 0.95  ████████████████████  ← best checkpoint
-
-  Fine-tune Epoch 1/10  — val_accuracy: 0.95  ████████████████████
-  Fine-tune Epoch 5/10  — val_accuracy: 0.97  ████████████████████
-```
-
-> Grafik lengkap training history dan confusion matrix tersimpan di folder `models/` setelah training selesai.
-
----
-
-## 🗂️ Struktur Project
-
-```
-plant-disease-ai/
-│
-├── 📄 train.py                  # Script training + evaluasi model
-├── 📄 predict.py                # Script prediksi (file & webcam)
-│
-├── 📊 training_history.png      # Grafik akurasi & loss per epoch
-├── 📊 confusion_matrix.png      # Confusion matrix semua kelas
-│
-├── 📁 models/                   # Output training (tidak diupload)
-│   ├── plant_disease_final.keras
-│   ├── best_model.keras
-│   ├── best_model_finetuned.keras
-│   └── class_names.json
-│
-└── 📁 dataset/                  # PlantVillage dataset (tidak diupload)
-    └── PlantVillage/
-        ├── Tomato_Bacterial_spot/
-        ├── Tomato_Early_blight/
-        └── ...
-```
-
----
-
-## ⚙️ Instalasi & Cara Pakai
-
-### 1. Clone Repository
 ```bash
 git clone https://github.com/arill2/A.I-plant-desease-detect.git
 cd A.I-plant-desease-detect
+
+python -m venv .venv
+source .venv/bin/activate      # Windows: .venv\Scripts\activate
+
+pip install -r requirements.txt
 ```
 
-### 2. Install Dependencies
+---
+
+## Cara pakai
+
+### 1. Cek dataset tanpa training (cepat, tidak butuh GPU)
+
 ```bash
-pip install tensorflow opencv-python matplotlib scikit-learn seaborn
+python train.py --dry-run
 ```
 
-### 3. Siapkan Dataset
-Download dataset PlantVillage dari Kaggle dan ekstrak ke:
-```
-D:\ALL PROJECT A.I\dataset\PlantVillage\
-```
-> 🔗 https://www.kaggle.com/datasets/emmarex/plantdisease
+Perintah ini hanya membaca folder, membuang duplikat, membagi split, lalu
+mencetak sebaran per kelas. Pakai ini dulu sebelum menunggu training berjam-jam.
 
-### 4. Training Model
+### 2. Test unit (tidak butuh TensorFlow)
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+### 3. Training
+
 ```bash
 python train.py
 ```
-Proses ini akan:
-- Melatih model 2 tahap (frozen → fine-tune)
-- Menyimpan best checkpoint otomatis
-- Generate grafik training history & confusion matrix
-- Menyimpan model final ke `models/plant_disease_final.keras`
 
-### 5. Jalankan Prediksi
+Output:
+
+- `models/plant_disease.keras` — model final
+- `models/training_meta.json` — kelas, preprocessing, ukuran split, metrik val & test
+- `reports/training_history.png`
+- `reports/test_confusion_matrix.png`
+- `reports/test_classification_report.txt`
+
+Eksperimen cepat:
+
 ```bash
-python predict.py
-```
-```
-==================================================
-  PLANT DISEASE PREDICTOR
-==================================================
-  1. Predict dari file gambar
-  2. Realtime webcam
-==================================================
-
-Pilih mode (1/2): _
+python train.py --epochs-head 3 --epochs-finetune 3
 ```
 
-**Mode 1 — File Gambar:**  
-Masukkan path gambar daun → sistem menampilkan Top-3 prediksi + visualisasi matplotlib
+### 4. Prediksi
 
-**Mode 2 — Webcam Real-time:**  
-Arahkan daun ke dalam kotak tengah → tekan `SPACE` untuk analisis → hasil muncul sebagai overlay UI
+```bash
+python predict.py --mode list                        # daftar kelas yang didukung
+python predict.py --mode file --image daun.jpg       # analisis satu gambar
+python predict.py --mode webcam                      # webcam real-time
+```
+
+Di mode webcam: `SPACE` untuk analisis, `Q` untuk keluar.
+
+### 5. Demo cepat dengan model v1 (tanpa retraining)
+
+```bash
+python predict.py --mode file --image daun.jpg \
+  --model models/plant_disease_final.keras
+```
+
+Model v1 dilatih dengan preprocessing `/255`, jadi lebih lemah daripada
+pipeline baru. Sidecar `models/plant_disease_final.meta.json` otomatis dipakai
+supaya urutan kelas dan preprocessing tetap benar. Detail ada di
+[`models/README.md`](models/README.md).
 
 ---
 
-## 🛠️ Tech Stack
+## Metrik
 
-| Teknologi | Kegunaan |
+Tidak ada angka akurasi di README ini karena angka harus berasal dari run kamu
+sendiri. Setelah `train.py` selesai, bandingkan dua angka yang dicetak:
+
+| Metrik | Artinya |
 |---|---|
-| **TensorFlow / Keras** | Training & inference model deep learning |
-| **MobileNetV2** | Pretrained CNN backbone (ImageNet) |
-| **OpenCV** | Webcam capture, frame processing, UI overlay |
-| **NumPy** | Array manipulation & preprocessing |
-| **Matplotlib** | Visualisasi hasil prediksi & training history |
-| **Scikit-learn** | Classification report & confusion matrix |
-| **Seaborn** | Heatmap confusion matrix |
+| `VAL` | Dipakai `ModelCheckpoint` dan `EarlyStopping` untuk memilih model. **Optimistis**, jangan dipakai untuk klaim. |
+| `TEST` | Tidak dipakai untuk keputusan apa pun. **Ini angka yang jujur.** |
+
+Detail per kelas (precision, recall, F1, support) tersimpan di
+`models/training_meta.json` dan `reports/test_classification_report.txt`.
 
 ---
 
-## 💡 Konsep yang Dipelajari
+## Struktur project
 
-- ✅ Transfer Learning dengan pretrained CNN
-- ✅ Two-stage training strategy (frozen → fine-tune)
-- ✅ Data Augmentation untuk mengatasi overfitting
-- ✅ Callback: EarlyStopping, ReduceLROnPlateau, ModelCheckpoint
-- ✅ Top-K Accuracy sebagai metrik evaluasi
-- ✅ Real-time inference dengan OpenCV
-- ✅ Custom UI overlay pada video feed
+```
+.
+├── config.py                 # satu sumber kebenaran: path, kelas, profil penyakit
+├── data.py                   # penemuan kelas, dedupe, split 3 arah, tf.data
+├── model.py                  # MobileNetV2 + head, augmentasi, fine-tune
+├── train.py                  # training 2 tahap + evaluasi test set
+├── predict.py                # prediksi file & webcam
+├── tests/test_data.py        # unit test tanpa TensorFlow
+├── models/
+│   ├── class_names.json      # 15 kelas hasil run v1 (bukti daftar kelas asli)
+│   ├── plant_disease_final.meta.json
+│   └── README.md
+├── reports/
+│   └── legacy_v1/            # grafik dari run lama, disimpan sebagai arsip
+├── legacy/                   # script versi lama, tidak dipakai lagi
+├── requirements.txt
+└── LICENSE
+```
 
 ---
 
-## ⚠️ Catatan
+## Keterbatasan
 
-- File model `.keras` tidak diupload karena ukurannya besar (>100MB)
-- Jalankan `train.py` terlebih dahulu untuk menghasilkan file model
-- GPU sangat disarankan untuk proses training (training di CPU akan jauh lebih lambat)
-- Pastikan path dataset dan model di `train.py` / `predict.py` sudah disesuaikan
+Bagian ini sengaja ditulis jujur. Jangan hapus kalau kamu mempresentasikan
+project ini.
+
+1. **PlantVillage adalah benchmark yang sudah jenuh.** Akurasi di dataset ini
+   mendekati 99% bahkan untuk model sederhana. Angka tinggi di sini bukan
+   prestasi, melainkan baseline. Kalau akurasimu 90-an%, masalahnya bukan pada
+   model, tapi pada setup eksperimen.
+2. **Domain shift.** Foto PlantVillage adalah satu daun di latar seragam dengan
+   cahaya laboratorium. Model mudah belajar latar belakang, bukan gejalanya.
+   Mohanty dkk. (2016) melaporkan akurasi ~99% di PlantVillage yang turun
+   drastis (~31%) ketika diuji pada gambar lapangan. Model di repo ini belum
+   diuji sama sekali pada foto lapangan.
+3. **Threshold keyakinan bukan deteksi out-of-distribution.** Softmax bisa tetap
+   tinggi untuk objek yang sama sekali bukan daun. Ambang `0.60` hanya mitigasi,
+   bukan solusi.
+4. **Tidak ada validasi agronomis.** Saran penanganan disusun dari pengetahuan
+   umum dan **bukan** hasil konsultasi dengan penyuluh pertanian. Jangan dipakai
+   sebagai dasar tindakan di lahan.
+5. **Satu gambar, satu daun.** Tidak ada deteksi objek atau segmentasi, jadi
+   foto dengan banyak daun akan menghasilkan satu label untuk seluruh frame.
+6. **Belum ada evaluasi kalibrasi.** Confidence dari softmax tidak dikalibrasi
+   (temperature scaling / reliability diagram belum dilakukan).
 
 ---
 
-<div align="center">
+## Referensi
 
-**Dibuat dengan ❤️ sebagai proyek pembelajaran Deep Learning**
+- Mohanty, S. P., Hughes, D. P., & Salathé, M. (2016). *Using Deep Learning for
+  Image-Based Plant Disease Detection.* Frontiers in Plant Science, 7, 1419.
+- Sandler, M. et al. (2018). *MobileNetV2: Inverted Residuals and Linear
+  Bottlenecks.* CVPR.
+- Hughes, D. P., & Salathé, M. (2015). *An open access repository of images on
+  plant health for the development of mobile and web applications.* arXiv:1511.08060.
 
-*Jika project ini bermanfaat, jangan lupa beri ⭐ pada repository ini!*
+---
 
-</div>
+## Lisensi
+
+MIT — lihat [LICENSE](LICENSE).

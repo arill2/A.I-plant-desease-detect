@@ -1,11 +1,33 @@
-tts_cache/
-*.task
-venv/
+# --- Python ---
 __pycache__/
-*.png
-*.jpg
-*.jpeg
-*.zip
-dataset/
-logs/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# --- OS / editor ---
 .DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# --- dataset (jangan pernah masuk repo) ---
+dataset/
+*.zip
+
+# --- artefak training ---
+# Model .keras berukuran puluhan MB dan bisa dilatih ulang lewat train.py.
+# Yang tetap di-track hanya metadata kecil: class_names.json dan training_meta.json.
+models/*.keras
+models/*.h5
+models/*.tflite
+logs/
+checkpoints/
+
+# --- output lokal ---
+prediction_result.png
+capture_*.jpg
+temp_predict.jpg

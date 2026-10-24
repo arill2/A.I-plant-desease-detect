@@ -1,0 +1,10 @@
+# TensorFlow 2.16+ memakai Keras 3 secara default.
+# Catatan: TensorFlow belum mendukung Python 3.13/3.14. Pakai Python 3.10 - 3.12.
+tensorflow>=2.16,<2.21
+
+numpy>=1.26
+pillow>=10.0
+opencv-python>=4.9
+matplotlib>=3.8
+scikit-learn>=1.4
+seaborn>=0.13
