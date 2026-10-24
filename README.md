@@ -25,8 +25,9 @@ Sekarang repo ini sudah dirapikan:
   hasil adalah angka **test**, karena test tidak dipakai untuk keputusan apa pun.
 - Gambar duplikat dibuang sebelum split (PlantVillage banyak berisi salinan
   identik), supaya tidak bocor ke train dan test sekaligus.
-- **Tidak ada angka akurasi yang ditulis di README ini.** Angka harus berasal
-  dari run kamu sendiri, dan tercatat otomatis di `models/training_meta.json`.
+- **Tidak ada angka akurasi karangan.** Angka yang ada di README ini berasal
+  dari satu run nyata yang tercatat di `models/training_meta.json`, beserta
+  split dan jumlah epoch-nya. Kalau kamu melatih ulang, angkanya akan berbeda.
 
 ---
 
@@ -184,18 +185,59 @@ supaya urutan kelas dan preprocessing tetap benar. Detail ada di
 
 ---
 
-## Metrik
+## Hasil run
 
-Tidak ada angka akurasi di README ini karena angka harus berasal dari run kamu
-sendiri. Setelah `train.py` selesai, bandingkan dua angka yang dicetak:
+Satu run nyata di CPU (i5-7200U, tanpa GPU), dataset penuh, 5 epoch head +
+3 epoch fine-tune. Waktu total ~1 jam 50 menit.
 
-| Metrik | Artinya |
+| Metrik | Nilai |
 |---|---|
-| `VAL` | Dipakai `ModelCheckpoint` dan `EarlyStopping` untuk memilih model. **Optimistis**, jangan dipakai untuk klaim. |
-| `TEST` | Tidak dipakai untuk keputusan apa pun. **Ini angka yang jujur.** |
+| **Test accuracy** | **80,19%** |
+| Test top-3 accuracy | 95,15% |
+| Macro F1 (test) | 0,764 |
+| Val accuracy | 80,16% |
 
-Detail per kelas (precision, recall, F1, support) tersimpan di
-`models/training_meta.json` dan `reports/test_classification_report.txt`.
+| Data | Jumlah |
+|---|---|
+| Total gambar terbaca | 20.638 |
+| Duplikat isi dibuang | 14 |
+| Train / Val / Test | 14.434 / 3.095 / 3.095 |
+
+**Catatan penting:** README versi lama mengklaim akurasi ~95%. Angka itu
+dihitung pada set validasi yang juga dipakai memilih checkpoint, dan tidak ada
+test set terpisah. Angka test yang sebenarnya adalah **80,19%**. Selisih 15
+poin itu bukan kemunduran model — itu selisih antara angka yang dipilih dan
+angka yang jujur.
+
+Detail per kelas ada di [`reports/test_classification_report.txt`](reports/test_classification_report.txt)
+dan [`reports/test_confusion_matrix.png`](reports/test_confusion_matrix.png).
+
+### Tiga kelas terlemah
+
+| Kelas | Precision | Recall | F1 |
+|---|---|---|---|
+| Hawar Awal (Tomat) | 0,88 | **0,15** | **0,25** |
+| Bercak Target (Tomat) | 0,70 | 0,64 | 0,67 |
+| Virus Mosaik (Tomat) | 0,53 | 1,00 | 0,69 |
+
+### Dua temuan dari run ini
+
+**1. Ada "kelas magnet".** `Tomato_Septoria_leaf_spot` punya recall 0,88 tapi
+precision hanya 0,60. Ia menyerap hampir semua lesi berupa bercak: 34 dari 150
+gambar Hawar Awal Tomat, 29 dari Bercak Bakteri Tomat, bahkan 41 dari Hawar
+Awal Kentang. Secara visual ini masuk akal — bercak cokelat di daun memang
+mirip satu sama lain pada resolusi 224×224. Konsekuensinya, akurasi total
+terlihat wajar padahal satu kelas praktis tidak terdeteksi.
+
+**2. Fine-tuning sempat merusak model.** Val accuracy sebelum fine-tune 0,749,
+lalu **turun ke 0,573** di epoch fine-tune pertama, baru pulih ke 0,802 di
+epoch ketiga. Penyebab paling mungkin: learning rate `1e-4` terlalu tinggi
+untuk 2,3 juta parameter yang baru dibuka. Eksperimen berikutnya: turunkan ke
+`1e-5`, atau bekukan BatchNormalization di base secara eksplisit.
+
+Angka-angka ini sengaja ditulis apa adanya. Kalau ditanya "akurasinya berapa",
+jawaban yang benar adalah 80,19% pada test set PlantVillage — bukan 95%.
+
 
 ---
 
@@ -212,8 +254,14 @@ Detail per kelas (precision, recall, F1, support) tersimpan di
 ├── models/
 │   ├── class_names.json      # 15 kelas hasil run v1 (bukti daftar kelas asli)
 │   ├── plant_disease_final.meta.json
+│   ├── training_meta.json    # hasil run terakhir: split, epoch, metrik test
 │   └── README.md
 ├── reports/
+│   ├── test_confusion_matrix.png
+│   ├── test_classification_report.txt
+│   ├── training_history.png
+│   ├── history_head.csv
+│   ├── history_finetune.csv
 │   └── legacy_v1/            # grafik dari run lama, disimpan sebagai arsip
 ├── legacy/                   # script versi lama, tidak dipakai lagi
 ├── requirements.txt

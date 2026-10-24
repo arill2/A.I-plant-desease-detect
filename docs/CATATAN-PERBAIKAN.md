@@ -78,10 +78,11 @@ yang menyatakan profilnya belum ada, bukan diam-diam kosong.
 
 **"Berapa akurasinya?"**
 
-> "Di test set hasil run saya X%. Tapi saya harus bilang bahwa angka itu tidak
-> berarti banyak, karena PlantVillage itu benchmark yang sudah jenuh — akurasi
-> 99% ke atas sudah biasa di sana. Yang lebih menarik justru kenapa angka itu
-> tidak bertahan di lapangan."
+> "80,19% pada test set yang tidak dipakai untuk memilih model sama sekali.
+> Top-3 95,15%, macro F1 0,764. Angka 80% ini justru lebih bisa dipercaya
+> daripada klaim 95% di README versi lama, karena angka lama dihitung pada set
+> validasi yang juga dipakai memilih checkpoint — itu nilai maksimum yang sudah
+> dipilih, bukan estimasi."
 
 **"Kenapa MobileNetV2?"**
 
@@ -130,6 +131,51 @@ Urutannya:
 > menunjukkan performa model seperti ini jatuh drastis di foto lapangan. Kedua,
 > tidak ada validasi agronomis pada saran penanganannya — itu pengetahuan umum,
 > bukan hasil konsultasi dengan penyuluh."
+
+### Hasil run nyata dan cara membacanya
+
+Satu run penuh sudah dijalankan (CPU i5-7200U, tanpa GPU, ~1 jam 50 menit,
+5 epoch head + 3 epoch fine-tune).
+
+| Metrik | Nilai |
+|---|---|
+| Test accuracy | **80,19%** |
+| Test top-3 | 95,15% |
+| Macro F1 | 0,764 |
+| Val accuracy | 80,16% |
+| Split | 14.434 / 3.095 / 3.095 |
+| Duplikat dibuang | 14 dari 20.638 |
+
+Tiga hal yang harus kamu hafal, karena inilah yang membedakan kamu dari orang
+yang cuma menjalankan notebook:
+
+**1. Angka 80% lebih kredibel daripada klaim 95% di versi lama.** Klaim lama
+dihitung pada set yang juga dipakai `ModelCheckpoint` dan `EarlyStopping`.
+Selisih 15 poin itu adalah ukuran bias seleksi — dan kebanyakan orang tidak
+tahu hal ini terjadi pada project mereka sendiri.
+
+**2. Ada "kelas magnet".** `Tomato_Septoria_leaf_spot` recall 0,88 tapi
+precision 0,60. Ia menyerap lesi bercak dari kelas lain: 34/150 Hawar Awal
+Tomat, 29/319 Bercak Bakteri Tomat, 41/150 Hawar Awal Kentang. Akurasi total
+kelihatan wajar padahal satu kelas (`Tomato_Early_blight`, F1 0,25) praktis
+tidak terdeteksi. Ini contoh kenapa **akurasi agregat menyesatkan** dan macro
+F1 (0,764) lebih jujur.
+
+**3. Fine-tuning sempat merusak model.** Val 0,749 sebelum fine-tune → turun
+ke 0,573 di epoch fine-tune pertama → baru pulih ke 0,802 di epoch ketiga.
+Penyebab paling mungkin: LR `1e-4` terlalu tinggi untuk 2,3 juta parameter
+yang baru dibuka. Ini bukan bug kode, ini keputusan hyperparameter yang salah —
+dan justru itu yang paling sering ditanya interviewer.
+
+Eksperimen lanjutan yang paling masuk akal, urut dari termurah:
+
+1. Turunkan LR fine-tune ke `1e-5`. Satu run, kemungkinan besar menghilangkan
+   penurunan 0,749 → 0,573.
+2. Bekukan `BatchNormalization` di base secara eksplisit saat fine-tune.
+3. Class weighting atau focal loss untuk `Tomato_Early_blight` dan
+   `Tomato__Target_Spot`.
+4. Uji pada foto lapangan asli. Ini yang akan menjatuhkan angkanya, dan justru
+   itu temuan yang paling berharga.
 
 ---
 

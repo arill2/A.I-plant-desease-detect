@@ -15,7 +15,9 @@ Thumbs.db
 .vscode/
 
 # --- dataset (jangan pernah masuk repo) ---
+# Dua entri: `dataset/` untuk folder biasa, `/dataset` untuk symlink.
 dataset/
+/dataset
 *.zip
 
 # --- artefak training ---

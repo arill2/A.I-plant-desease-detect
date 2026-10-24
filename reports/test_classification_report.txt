@@ -1,0 +1,21 @@
+                            precision    recall  f1-score   support
+
+  Bercak Bakteri (Paprika)      0.982     0.713     0.826       150
+             Paprika Sehat      1.000     0.865     0.928       222
+      Hawar Awal (Kentang)      0.990     0.667     0.797       150
+     Hawar Akhir (Kentang)      0.989     0.620     0.762       150
+             Kentang Sehat      0.857     0.783     0.818        23
+    Bercak Bakteri (Tomat)      0.769     0.868     0.816       319
+        Hawar Awal (Tomat)      0.880     0.147     0.251       150
+       Hawar Akhir (Tomat)      0.873     0.768     0.817       285
+        Jamur Daun (Tomat)      0.799     0.748     0.773       143
+   Bercak Septoria (Tomat)      0.604     0.883     0.718       266
+  Tungau Laba-laba (Tomat)      0.792     0.837     0.814       251
+     Bercak Target (Tomat)      0.703     0.640     0.670       211
+Virus Keriting Daun Kuning      0.880     0.992     0.933       481
+      Virus Mosaik (Tomat)      0.528     1.000     0.691        56
+               Tomat Sehat      0.745     0.983     0.848       238
+
+                  accuracy                          0.802      3095
+                 macro avg      0.826     0.768     0.764      3095
+              weighted avg      0.829     0.802     0.791      3095
