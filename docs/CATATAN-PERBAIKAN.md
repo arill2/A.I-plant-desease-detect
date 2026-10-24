@@ -25,6 +25,7 @@ ditanya.
 | 13 | Tidak ada `requirements.txt` | — | **Diperbaiki** |
 | 14 | Tidak ada test otomatis | — | **Diperbaiki** — `tests/test_data.py`, 18 test, tanpa butuh TensorFlow |
 | 15 | Path Windows hardcoded (`D:\ALL PROJECT A.I\...`) | dua script | **Diperbaiki** — path relatif ke root repo |
+| 16 | Loss `categorical_crossentropy` tapi label dari `tf.data` masih integer (rank 1) | ketahuan saat run nyata: `ValueError: target.shape=(None,), output.shape=(None, 15)` | **Diperbaiki** — `sparse_categorical_crossentropy` + `SparseCategoricalAccuracy` / `SparseTopKCategoricalAccuracy` |
 
 ---
 

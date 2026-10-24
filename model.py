@@ -67,12 +67,15 @@ def build_model(num_classes: int, img_size: tuple[int, int], learning_rate: floa
 def compile_model(model, learning_rate: float) -> None:
     import tensorflow as tf
 
+    # Label dari tf.data berupa integer (rank 1), bukan one-hot. Karena itu
+    # dipakai sparse_categorical_crossentropy + metrik sparse, supaya tidak
+    # perlu one-hot encoding yang cuma membuang memori.
     model.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
-        loss="categorical_crossentropy",
+        loss="sparse_categorical_crossentropy",
         metrics=[
-            "accuracy",
-            tf.keras.metrics.TopKCategoricalAccuracy(k=3, name="top3_acc"),
+            tf.keras.metrics.SparseCategoricalAccuracy(name="accuracy"),
+            tf.keras.metrics.SparseTopKCategoricalAccuracy(k=3, name="top3_acc"),
         ],
     )
 
