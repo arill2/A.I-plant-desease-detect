@@ -3,8 +3,8 @@
 Deteksi penyakit daun tomat, kentang, dan paprika dari gambar, dengan mode file
 statis maupun webcam real-time.
 
-[![Python](https://img.shields.io/badge/Python-3.10--3.12-3776AB?logo=python&logoColor=white)](https://python.org)
-[![TensorFlow](https://img.shields.io/badge/TensorFlow-2.16%2B-FF6F00?logo=tensorflow&logoColor=white)](https://tensorflow.org)
+[![Python](https://img.shields.io/badge/Python-3.10--3.13-3776AB?logo=python&logoColor=white)](https://python.org)
+[![TensorFlow](https://img.shields.io/badge/TensorFlow-2.16--2.21-FF6F00?logo=tensorflow&logoColor=white)](https://tensorflow.org)
 [![License](https://img.shields.io/badge/License-MIT-00C853)](LICENSE)
 
 ---
@@ -28,6 +28,20 @@ Sekarang repo ini sudah dirapikan:
 - **Tidak ada angka akurasi karangan.** Angka yang ada di README ini berasal
   dari satu run nyata yang tercatat di `models/training_meta.json`, beserta
   split dan jumlah epoch-nya. Kalau kamu melatih ulang, angkanya akan berbeda.
+
+### Yang sudah dijalankan, dan yang belum
+
+| Cek | Status |
+|---|---|
+| `train.py` pada dataset penuh, 5 epoch head + 3 fine-tune | ✅ selesai |
+| `predict.py --mode file` pada gambar asli | ✅ 4 gambar |
+| `predict.py --mode webcam` pada webcam USB (V4L2, 640×480) | ✅ jendela, `SPACE`, `Q` |
+| `--mode webcam` dengan daun asli di depan kamera | ❌ belum |
+| Foto lapangan (bukan PlantVillage) | ❌ belum |
+| Konfigurasi default 10 + 10 epoch | ❌ belum |
+
+Angka 80,19% di bawah berasal dari **5 + 3 epoch**, bukan 10 + 10. Mesinnya CPU
+2 core, jadi konfigurasi default akan memakan waktu jauh lebih lama.
 
 ---
 
@@ -97,10 +111,14 @@ Input 224×224×3  →  preprocess_input  →  skala [-1, 1]
   Dense(15, softmax)
 ```
 
-| Tahap | Layer dilatih | LR | Epoch |
+| Tahap | Layer dilatih | LR | Epoch (default `config.py`) |
 |---|---|---|---|
 | 1 — Feature extraction | head saja | `1e-3` | 10 |
 | 2 — Fine-tune | head + 30 layer terakhir base | `1e-4` | 10 |
+
+Run yang dilaporkan di README ini memakai `--epochs-head 5 --epochs-finetune 3`
+karena mesinnya CPU 2 core. Kolom Epoch di atas adalah default, bukan yang
+dijalankan.
 
 Catatan teknis: `base_model(inputs, training=False)` dipakai supaya
 BatchNormalization di dalam MobileNetV2 tetap memakai statistik ImageNet selama
@@ -110,7 +128,11 @@ fine-tuning. Tanpa ini, hasil fine-tune sering justru memburuk.
 
 ## Instalasi
 
-Butuh **Python 3.10–3.12** (TensorFlow belum mendukung 3.13/3.14).
+Butuh **Python 3.10–3.13**. Python 3.14 belum didukung TensorFlow (belum ada
+wheel resminya).
+
+Run yang dilaporkan di README ini dijalankan pada **Python 3.13.15 +
+`tensorflow-cpu` 2.21.0 + Keras 3.15.1**, tanpa GPU.
 
 ```bash
 git clone https://github.com/arill2/A.I-plant-desease-detect.git
@@ -121,6 +143,9 @@ source .venv/bin/activate      # Windows: .venv\Scripts\activate
 
 pip install -r requirements.txt
 ```
+
+Kalau tidak butuh GPU, `pip install tensorflow-cpu` lebih ringan (~200 MB
+lebih kecil) dan itulah yang dipakai pada run ini.
 
 ---
 
@@ -169,7 +194,9 @@ python predict.py --mode file --image daun.jpg       # analisis satu gambar
 python predict.py --mode webcam                      # webcam real-time
 ```
 
-Di mode webcam: `SPACE` untuk analisis, `Q` untuk keluar.
+Di mode webcam: `SPACE` untuk analisis, `Q` untuk keluar. Yang dianalisis hanya
+area di dalam kotak tengah (320×320), bukan seluruh frame. Mode ini butuh
+display grafis — di server tanpa X11/Wayland, `cv2.imshow` akan gagal.
 
 ### 5. Demo cepat dengan model v1 (tanpa retraining)
 
@@ -187,8 +214,9 @@ supaya urutan kelas dan preprocessing tetap benar. Detail ada di
 
 ## Hasil run
 
-Satu run nyata di CPU (i5-7200U, tanpa GPU), dataset penuh, 5 epoch head +
-3 epoch fine-tune. Waktu total ~1 jam 50 menit.
+Satu run nyata di CPU (i5-7200U, 2 core / 4 thread, tanpa GPU), dataset penuh,
+5 epoch head + 3 epoch fine-tune. Waktu total ~1 jam 50 menit.
+Python 3.13.15, `tensorflow-cpu` 2.21.0, Keras 3.15.1.
 
 | Metrik | Nilai |
 |---|---|
@@ -263,6 +291,8 @@ jawaban yang benar adalah 80,19% pada test set PlantVillage — bukan 95%.
 │   ├── history_head.csv
 │   ├── history_finetune.csv
 │   └── legacy_v1/            # grafik dari run lama, disimpan sebagai arsip
+├── docs/
+│   └── CATATAN-PERBAIKAN.md  # audit, alasan perubahan, kisi-kisi wawancara
 ├── legacy/                   # script versi lama, tidak dipakai lagi
 ├── requirements.txt
 └── LICENSE
